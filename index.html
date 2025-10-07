@@ -2,87 +2,77 @@
 <html lang="ar">
 <head>
   <meta charset="UTF-8">
-  <title>تحويل الصور إلى PDF بدون تغيير الحجم</title>
+  <title>تحويل الصور إلى PDF</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     body {
-      font-family: system-ui, sans-serif;
       background-color: #2e5d88;
       color: white;
+      font-family: Arial, sans-serif;
       text-align: center;
-      padding: 40px;
+      margin-top: 100px;
     }
-    input[type=file] {
-      margin: 20px 0;
-      background: #fff;
+    input {
+      margin: 10px;
       padding: 10px;
-      border-radius: 6px;
+      border-radius: 8px;
+      border: none;
     }
     button {
       padding: 10px 20px;
-      background: #0b74de;
-      color: #fff;
       border: none;
       border-radius: 8px;
-      font-size: 16px;
+      background-color: white;
+      color: #2e5d88;
+      font-weight: bold;
       cursor: pointer;
-    }
-    .note {
-      margin-top: 10px;
-      color: #ffcaca;
     }
   </style>
 </head>
 <body>
-  <h2>تحويل الصور إلى PDF بالحجم الأصلي</h2>
-  <p>اختر صورة أو أكثر (JPG أو PNG):</p>
-
-  <input type="file" id="images" accept="image/*" multiple><br>
+  <h2>تحويل الصور إلى PDF (مقاس A4)</h2>
+  <input type="file" id="images" accept="image/*" multiple>
+  <br>
   <button onclick="generatePDF()">تحويل إلى PDF</button>
-
-  <p class="note" id="note"></p>
 
   <script>
     async function generatePDF() {
       const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
       const files = document.getElementById('images').files;
-      const note = document.getElementById('note');
-      note.textContent = '';
 
-      if (!files.length) {
-        note.textContent = 'الرجاء اختيار صورة واحدة على الأقل.';
+      if (files.length === 0) {
+        alert('اختر صور أولاً');
         return;
       }
 
-      let firstPage = true;
-      let pdf;
-
-      for (const file of files) {
-        const imgData = await readFileAsDataURL(file);
+      for (let i = 0; i < files.length; i++) {
+        const imgData = await readFileAsDataURL(files[i]);
         const img = new Image();
         img.src = imgData;
-        await new Promise(res => img.onload = res);
 
-        // حجم الصفحة = حجم الصورة نفسها بالبكسل
-        const width = img.width;
-        const height = img.height;
+        await new Promise((resolve) => {
+          img.onload = function () {
+            const pageWidth = 210; // A4 width in mm
+            const pageHeight = 297; // A4 height in mm
+            const imgWidth = img.width;
+            const imgHeight = img.height;
 
-        if (firstPage) {
-          pdf = new jsPDF({
-            orientation: width > height ? 'landscape' : 'portrait',
-            unit: 'px',
-            format: [width, height]
-          });
-          firstPage = false;
-        } else {
-          pdf.addPage([width, height]);
-        }
+            // حساب المقاسات بالنسبة للـ DPI
+            const ratio = Math.min(pageWidth / imgWidth, pageHeight / imgHeight);
+            const width = imgWidth * ratio;
+            const height = imgHeight * ratio;
+            const x = (pageWidth - width) / 2;
+            const y = (pageHeight - height) / 2;
 
-        pdf.addImage(img, 'JPEG', 0, 0, width, height);
+            pdf.addImage(img, 'JPEG', x, y, width, height);
+            if (i < files.length - 1) pdf.addPage();
+            resolve();
+          };
+        });
       }
 
-      pdf.save('original_images.pdf');
-      note.textContent = '✅ تم إنشاء الملف بدون أي تعديل على الصور!';
+      pdf.save('images.pdf');
     }
 
     function readFileAsDataURL(file) {
