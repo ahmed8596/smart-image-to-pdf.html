@@ -2,7 +2,7 @@
 <html lang="ar">
 <head>
   <meta charset="UTF-8">
-  <title>تحويل الصور إلى PDF</title>
+  <title>تحويل الصور إلى PDF بدون تغيير الحجم</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     body {
@@ -18,12 +18,6 @@
       padding: 10px;
       border-radius: 6px;
     }
-    select {
-      padding: 8px;
-      border-radius: 6px;
-      border: none;
-      margin: 0 5px;
-    }
     button {
       padding: 10px 20px;
       background: #0b74de;
@@ -37,157 +31,58 @@
       margin-top: 10px;
       color: #ffcaca;
     }
-    #preview {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      justify-content: center;
-      margin-top: 20px;
-    }
-    .imgBox {
-      position: relative;
-      width: 120px;
-      height: 120px;
-      border: 2px dashed #ccc;
-      border-radius: 10px;
-      overflow: hidden;
-      cursor: grab;
-      background: #fff;
-    }
-    .imgBox img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-    .imgBox span {
-      position: absolute;
-      top: 4px;
-      right: 6px;
-      background: rgba(0,0,0,0.5);
-      color: #fff;
-      padding: 2px 5px;
-      border-radius: 4px;
-      font-size: 12px;
-      cursor: pointer;
-    }
   </style>
 </head>
 <body>
-  <h2>حوّل صورك إلى ملف PDF</h2>
-  <p>اختر الصور، رتبها، ثم حوّلها إلى PDF:</p>
+  <h2>تحويل الصور إلى PDF بالحجم الأصلي</h2>
+  <p>اختر صورة أو أكثر (JPG أو PNG):</p>
 
   <input type="file" id="images" accept="image/*" multiple><br>
-
-  <div>
-    <label>الحجم:</label>
-    <select id="pageSize">
-      <option value="a4">A4</option>
-      <option value="a3">A3</option>
-    </select>
-
-    <label>الاتجاه:</label>
-    <select id="orientation">
-      <option value="portrait">طولي</option>
-      <option value="landscape">عرضي</option>
-    </select>
-  </div>
-
-  <div id="preview"></div>
-
   <button onclick="generatePDF()">تحويل إلى PDF</button>
+
   <p class="note" id="note"></p>
 
   <script>
-    let imageFiles = [];
-
-    const preview = document.getElementById('preview');
-    const input = document.getElementById('images');
-    const note = document.getElementById('note');
-
-    input.addEventListener('change', e => {
-      const files = Array.from(e.target.files);
-      imageFiles = files;
-      renderPreview();
-    });
-
-    function renderPreview() {
-      preview.innerHTML = '';
-      imageFiles.forEach((file, index) => {
-        const reader = new FileReader();
-        reader.onload = e => {
-          const div = document.createElement('div');
-          div.className = 'imgBox';
-          div.draggable = true;
-          div.dataset.index = index;
-
-          div.innerHTML = `<img src="${e.target.result}"><span onclick="removeImage(${index})">✕</span>`;
-          preview.appendChild(div);
-        };
-        reader.readAsDataURL(file);
-      });
-      makeDraggable();
-    }
-
-    function removeImage(index) {
-      imageFiles.splice(index, 1);
-      renderPreview();
-    }
-
-    function makeDraggable() {
-      let dragged;
-      preview.querySelectorAll('.imgBox').forEach(box => {
-        box.addEventListener('dragstart', e => {
-          dragged = box;
-          e.dataTransfer.effectAllowed = 'move';
-        });
-        box.addEventListener('dragover', e => e.preventDefault());
-        box.addEventListener('drop', e => {
-          e.preventDefault();
-          const target = e.target.closest('.imgBox');
-          if (!target || target === dragged) return;
-          const draggedIndex = parseInt(dragged.dataset.index);
-          const targetIndex = parseInt(target.dataset.index);
-          const temp = imageFiles[draggedIndex];
-          imageFiles.splice(draggedIndex, 1);
-          imageFiles.splice(targetIndex, 0, temp);
-          renderPreview();
-        });
-      });
-    }
-
     async function generatePDF() {
       const { jsPDF } = window.jspdf;
-      if (!imageFiles.length) {
-        note.textContent = 'اختر صورة واحدة على الأقل.';
+      const files = document.getElementById('images').files;
+      const note = document.getElementById('note');
+      note.textContent = '';
+
+      if (!files.length) {
+        note.textContent = 'الرجاء اختيار صورة واحدة على الأقل.';
         return;
       }
 
-      const pageSize = document.getElementById('pageSize').value;
-      const orientation = document.getElementById('orientation').value;
-      const pdf = new jsPDF({ orientation, unit: 'px', format: pageSize });
-      let first = true;
+      let firstPage = true;
+      let pdf;
 
-      for (const file of imageFiles) {
-        const data = await readFileAsDataURL(file);
+      for (const file of files) {
+        const imgData = await readFileAsDataURL(file);
         const img = new Image();
-        img.src = data;
+        img.src = imgData;
         await new Promise(res => img.onload = res);
 
-        const pageW = pdf.internal.pageSize.getWidth();
-        const pageH = pdf.internal.pageSize.getHeight();
-        const ratio = Math.min(pageW / img.width, pageH / img.height);
-        const w = img.width * ratio;
-        const h = img.height * ratio;
-        const x = (pageW - w) / 2;
-        const y = (pageH - h) / 2;
+        // حجم الصفحة = حجم الصورة نفسها بالبكسل
+        const width = img.width;
+        const height = img.height;
 
-        if (!first) pdf.addPage();
-        pdf.addImage(img, 'JPEG', x, y, w, h);
-        first = false;
+        if (firstPage) {
+          pdf = new jsPDF({
+            orientation: width > height ? 'landscape' : 'portrait',
+            unit: 'px',
+            format: [width, height]
+          });
+          firstPage = false;
+        } else {
+          pdf.addPage([width, height]);
+        }
+
+        pdf.addImage(img, 'JPEG', 0, 0, width, height);
       }
 
-      pdf.save('images.pdf');
-      note.textContent = '✅ تم إنشاء الملف بنجاح!';
+      pdf.save('original_images.pdf');
+      note.textContent = '✅ تم إنشاء الملف بدون أي تعديل على الصور!';
     }
 
     function readFileAsDataURL(file) {
