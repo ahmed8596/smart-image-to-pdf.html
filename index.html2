@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>تحويل الصور إلى PDF</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    :root {
+      --main-color: #2e5d88;
+      --accent: #ffffff;
+      --shadow: rgba(0, 0, 0, 0.25);
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: 'Tajawal', sans-serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: var(--main-color);
+      color: var(--accent);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      text-align: center;
+    }
+
+    .container {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 30px 25px;
+      box-shadow: 0 4px 20px var(--shadow);
+      width: 90%;
+      max-width: 400px;
+      animation: fadeIn 0.7s ease-in-out;
+    }
+
+    h2 {
+      margin-bottom: 20px;
+      font-weight: 600;
+      font-size: 1.5rem;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    label {
+      display: block;
+      background: var(--accent);
+      color: var(--main-color);
+      padding: 12px;
+      border-radius: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.3s;
+      margin-bottom: 15px;
+    }
+
+    label:hover {
+      background: #e5e5e5;
+    }
+
+    button {
+      background: var(--accent);
+      color: var(--main-color);
+      border: none;
+      border-radius: 12px;
+      padding: 12px 20px;
+      font-weight: bold;
+      cursor: pointer;
+      width: 100%;
+      transition: 0.3s;
+    }
+
+    button:hover {
+      background: #dfe8f1;
+    }
+
+    .preview {
+      margin-top: 15px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .preview img {
+      width: 70px;
+      height: 70px;
+      object-fit: cover;
+      border-radius: 10px;
+      border: 2px solid white;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>تحويل الصور إلى PDF</h2>
+    <label for="images">📁 اختر الصور</label>
+    <input type="file" id="images" accept="image/*" multiple>
+    <button onclick="generatePDF()">تحويل إلى PDF</button>
+    <div class="preview" id="preview"></div>
+  </div>
+
+  <script>
+    const input = document.getElementById('images');
+    const preview = document.getElementById('preview');
+
+    input.addEventListener('change', () => {
+      preview.innerHTML = '';
+      for (const file of input.files) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = document.createElement('img');
+          img.src = e.target.result;
+          preview.appendChild(img);
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    async function generatePDF() {
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
+      const files = input.files;
+
+      if (files.length === 0) {
+        alert('اختر صور أولاً');
+        return;
+      }
+
+      for (let i = 0; i < files.length; i++) {
+        const imgData = await readFileAsDataURL(files[i]);
+        const img = new Image();
+        img.src = imgData;
+
+        await new Promise((resolve) => {
+          img.onload = function () {
+            const pageWidth = 210;
+            const pageHeight = 297;
+            const imgWidth = img.width;
+            const imgHeight = img.height;
+            const ratio = Math.min(pageWidth / imgWidth, pageHeight / imgHeight);
+            const width = imgWidth * ratio;
+            const height = imgHeight * ratio;
+            const x = (pageWidth - width) / 2;
+            const y = (pageHeight - height) / 2;
+
+            pdf.addImage(img, 'JPEG', x, y, width, height);
+            if (i < files.length - 1) pdf.addPage();
+            resolve();
+          };
+        });
+      }
+
+      pdf.save('images.pdf');
+    }
+
+    function readFileAsDataURL(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+  </script>
+</body>
+</html>
